@@ -1,0 +1,9 @@
+.env
+
+__pycache__/
+
+research_memory/
+
+sec_data/
+
+*.pyc

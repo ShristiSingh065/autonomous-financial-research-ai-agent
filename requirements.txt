@@ -1,0 +1,6 @@
+exa-py
+groq
+chromadb
+newsapi-python
+yfinance
+sec-edgar-downloader
