@@ -295,10 +295,10 @@ def generate_research_report(query):
 
             all_summaries.append(researcher)
 
-            #collection.add(
-             #   documents=[researcher],
-              #  ids=[str(uuid.uuid4())]
-            #)
+            collection.add(
+                documents=[researcher],
+                ids=[str(uuid.uuid4())]
+            )
 
     combined_text = "\n\n".join(all_summaries)
 

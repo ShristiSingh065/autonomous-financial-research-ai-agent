@@ -1,9 +1,10 @@
 streamlit
 exa-py
-chromadb
+chromadb==0.5.5
 arxiv
 yfinance
 groq
 newsapi-python
 sec-edgar-downloader
 python-dotenv
+protobuf==5.29.5
