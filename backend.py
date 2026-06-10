@@ -23,7 +23,7 @@ client = Groq(
 )
 
 exa = Exa(
-    api_key=EXA_API_KEY
+    api_key=os.getenv("EXA_API_KEY")
 )
 client_db = chromadb.PersistentClient(
     path="./research_memory"
