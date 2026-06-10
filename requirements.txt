@@ -1,6 +1,7 @@
-exa-py
+streamlit
 groq
+exa_py
 chromadb
 newsapi-python
-yfinance
-sec-edgar-downloader
+python-dotenv
+uuid

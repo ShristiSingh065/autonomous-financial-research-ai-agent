@@ -9,6 +9,7 @@ from newsapi import NewsApiClient
 from sec_edgar_downloader import Downloader
 from dotenv import load_dotenv
 import os
+
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
@@ -22,7 +23,7 @@ client = Groq(
 )
 
 exa = Exa(
-    "c7da9420-64e2-4aca-8a26-90c01ebe5305"
+    api_key=EXA_API_KEY
 )
 client_db = chromadb.PersistentClient(
     path="./research_memory"
@@ -218,175 +219,170 @@ def react_agent(question):
             scratchpad += f"\nOBSERVATION:\n{results}\n"
     return scratchpad
 
-query = input("Research Topic: ")
-
-print("\n[PLANNER AGENT WORKING...]\n")
-
-planner_text = ask_llm(
-    f"""
-    You are a research planner.
-
-    Create 5 search queries to thoroughly research:
-
-    {query}
-
-    Return only the queries.
-    One per line.
+def generate_research_report(query):
     """
-)
-print("\n[REACT AGENT WORKING...]\n")
-react_results = react_agent(query)
+    Main pipeline function.
+    Takes a research topic and returns the final report.
+    """
 
-queries = [] 
-     
-for line in planner_text.split("\n"):
-    line = line.strip()
+    print("\n[PLANNER AGENT WORKING...]\n")
 
-    if not line:
-        continue
+    planner_text = ask_llm(
+        f"""
+        You are a research planner.
 
-    line = re.sub(r"^\d+\.\s*", "", line)
-    line = line.replace('"', "")
+        Create 5 search queries to thoroughly research:
 
-    queries.append(line)
+        {query}
 
-all_summaries = []
-print("\n[RESEARCH AGENT WORKING...]\n")
-
-for q in queries:
-
-    print(f"\nSearching: {q}")
-
-    response = exa.search(
-        q,
-        num_results=1
+        Return only the queries.
+        One per line.
+        """
     )
 
-    for result in response.results:
+    print("\n[REACT AGENT WORKING...]\n")
+    react_results = react_agent(query)
 
-        print("\n" + "=" * 60)
-        print("TITLE:", result.title)
-        print("URL:", result.url)
+    queries = []
 
-        article_text = (result.text or "")[:1500]
-        researcher = ask_llm(
-    f"""
-    You are a research analyst.
+    for line in planner_text.split("\n"):
+        line = line.strip()
 
-    Analyze this source.
+        if not line:
+            continue
 
-    Provide:
+        line = re.sub(r"^\d+\.\s*", "", line)
+        line = line.replace('"', "")
 
-    1. Main Idea
-    2. Key Findings
-    3. Important Statistics
-    4. Limitations
-    5. Short Summary
+        queries.append(line)
 
-    Article:
+    all_summaries = []
 
-    {article_text}
-    """
+    print("\n[RESEARCH AGENT WORKING...]\n")
+
+    for q in queries:
+
+        print(f"\nSearching: {q}")
+
+        response = exa.search(
+            q,
+            num_results=1
+        )
+
+        for result in response.results:
+
+            article_text = (result.text or "")[:1500]
+
+            researcher = ask_llm(
+                f"""
+                You are a research analyst.
+
+                Analyze this source.
+
+                Provide:
+
+                1. Main Idea
+                2. Key Findings
+                3. Important Statistics
+                4. Limitations
+                5. Short Summary
+
+                Article:
+
+                {article_text}
+                """
+            )
+
+            all_summaries.append(researcher)
+
+            collection.add(
+                documents=[researcher],
+                ids=[str(uuid.uuid4())]
+            )
+
+    combined_text = "\n\n".join(all_summaries)
+
+    synthesis = ask_llm(
+        f"""
+        You are a senior research analyst.
+
+        Below are findings from:
+
+        1. Web sources
+        2. News sources
+        3. Memory sources
+
+        Tasks:
+
+        - Merge overlapping information
+        - Identify conflicts
+        - Determine most reliable evidence
+        - Explain disagreements
+        - Produce unified conclusions
+
+        Data:
+
+        REACT FINDINGS:
+        {react_results}
+
+        SOURCE SUMMARIES:
+        {combined_text}
+        """
     )
-    print(researcher)
-    all_summaries.append(researcher)
-    collection.add(
-        documents=[researcher],
-        ids=[str(uuid.uuid4())]
+
+    critic_notes = ask_llm(
+        f"""
+        You are a critical reviewer.
+
+        Review the collected research.
+
+        Identify:
+
+        1. Weak evidence
+        2. Missing perspectives
+        3. Contradictions
+        4. Potential bias
+        5. Research gaps
+
+        Research:
+        {synthesis}
+        """
     )
 
-combined_text = "\n\n".join(all_summaries)
-synthesis = ask_llm(
-f"""
-You are a senior research analyst.
+    final_report = ask_llm(
+        f"""
+        Create a professional research report.
 
-Below are findings from:
+        Topic:
+        {query}
 
-1. Web sources
-2. News sources
-3. Memory sources
+        Research Findings:
+        {synthesis}
 
-Tasks:
+        Critic Review:
+        {critic_notes}
 
-- Merge overlapping information
-- Identify conflicts
-- Determine most reliable evidence
-- Explain disagreements
-- Produce unified conclusions
+        Generate:
 
-Data:
+        1. Executive Summary
 
-REACT FINDINGS:
-{react_results}
+        2. Major Trends
 
-SOURCE SUMMARIES:
-{combined_text}
-"""
-)
+        3. Key Findings
 
-print("\n[CRITIC AGENT WORKING...]\n")
+        4. Challenges
 
-critic_notes = ask_llm(
-    f"""
-    You are a critical reviewer.
+        5. Risks and Limitations
 
-    Review the collected research.
+        6. Future Outlook
 
-    Identify:
+        7. Research Gaps
 
-    1. Weak evidence
-    2. Missing perspectives
-    3. Contradictions
-    4. Potential bias
-    5. Research gaps
+        8. Conclusion
 
-    Research:
-    {synthesis}
-    """
-)
+        Write professionally.
+        """
+    )
 
-print(critic_notes)
-print("\n[REPORT WRITER WORKING...]\n")
+    return final_report
 
-final_report = ask_llm(
-    f"""
-    Create a professional research report.
-
-    Topic:
-    {query}
-
-    Research Findings:
-    {synthesis}
-
-    Critic Review:
-    {critic_notes}
-
-    Generate:
-
-    1. Executive Summary
-
-    2. Major Trends
-
-    3. Key Findings
-
-    4. Challenges
-
-    5. Risks and Limitations
-
-    6. Future Outlook
-
-    7. Research Gaps
-
-    8. Conclusion
-
-    Write professionally.
-    """
-)
-
-print("\n")
-print("=" * 80)
-print("FINAL RESEARCH REPORT")
-print("=" * 80)
-print("\n")
-
-print(final_report)
