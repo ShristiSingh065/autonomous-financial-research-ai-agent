@@ -1,7 +1,9 @@
 streamlit
-groq
-exa_py
+exa-py
 chromadb
+arxiv
+yfinance
+groq
 newsapi-python
+sec-edgar-downloader
 python-dotenv
-uuid
